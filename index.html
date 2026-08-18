@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Node Poster Maker</title>
+<style>
+  :root{
+    --bg:#16181a;
+    --panel:#1e2124;
+    --panel2:#262a2e;
+    --line:#343a3f;
+    --ink:#e8eaec;
+    --muted:#8d959c;
+    --hi:#d9f24a;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    font-family:-apple-system,'Helvetica Neue',Helvetica,'Sukhumvit Set',Thonburi,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    display:flex;
+    overflow:hidden;
+  }
+  #panel{
+    width:326px;flex:0 0 326px;
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    height:100vh;overflow-y:auto;
+    padding:16px 16px 60px;
+  }
+  #panel::-webkit-scrollbar{width:8px;}
+  #panel::-webkit-scrollbar-thumb{background:#3a4147;border-radius:4px;}
+  h1{font-size:13px;letter-spacing:2.5px;text-transform:uppercase;margin:0 0 3px;}
+  .tagline{font-size:11px;color:var(--muted);margin:0 0 18px;line-height:1.5;}
+  details{border:1px solid var(--line);border-radius:6px;margin-bottom:9px;background:var(--panel2);}
+  details[open]{background:var(--panel2);}
+  summary{
+    cursor:pointer;padding:10px 12px;font-size:11px;
+    letter-spacing:1.5px;text-transform:uppercase;color:#c3cad0;
+    user-select:none;list-style:none;
+  }
+  summary::-webkit-details-marker{display:none;}
+  summary::before{content:'▸ ';color:var(--hi);}
+  details[open]>summary::before{content:'▾ ';}
+  .body{padding:4px 12px 14px;}
+  .f{margin-bottom:12px;}
+  .f>label{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:10.5px;color:var(--muted);margin-bottom:5px;letter-spacing:.4px;
+  }
+  .f>label b{color:var(--hi);font-weight:600;font-variant-numeric:tabular-nums;}
+  input[type=range]{width:100%;accent-color:var(--hi);height:18px;}
+  input[type=text],input[type=number],select,textarea{
+    width:100%;font-family:inherit;font-size:12px;padding:7px 8px;
+    border:1px solid var(--line);background:#15181a;color:var(--ink);border-radius:4px;
+  }
+  textarea{resize:vertical;min-height:60px;line-height:1.45;}
+  input[type=color]{
+    width:100%;height:32px;padding:2px;border:1px solid var(--line);
+    background:#15181a;border-radius:4px;cursor:pointer;
+  }
+  button{
+    font-family:inherit;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;
+    padding:9px 10px;width:100%;border:1px solid var(--line);
+    background:#2f3439;color:var(--ink);cursor:pointer;border-radius:4px;margin-bottom:7px;
+  }
+  button:hover{background:#3a4147;}
+  button.primary{background:var(--hi);color:#15181a;border-color:var(--hi);font-weight:700;}
+  button.primary:hover{filter:brightness(1.1);}
+  button:active{transform:translateY(1px);}
+  .row{display:flex;gap:6px;}
+  .row>*{margin-bottom:0;}
+  .row .f{flex:1;}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+  .chip{
+    font-size:11px;padding:6px 9px;border:1px solid var(--line);border-radius:4px;
+    background:#15181a;color:var(--muted);cursor:pointer;flex:1;text-align:center;
+  }
+  .chip.on{background:var(--hi);color:#15181a;border-color:var(--hi);font-weight:700;}
+  .hint{font-size:10px;color:#6d757c;line-height:1.5;margin:6px 0 0;}
+  #stage{
+    flex:1;display:flex;align-items:center;justify-content:center;
+    padding:22px;overflow:auto;background:
+      repeating-conic-gradient(#1b1e21 0% 25%, #202427 0% 50%) 50%/22px 22px;
+  }
+  #cv{
+    box-shadow:0 10px 50px rgba(0,0,0,.6);
+    max-width:100%;max-height:calc(100vh - 44px);
+    cursor:grab;
+  }
+  #cv.dragging{cursor:grabbing;}
+  #drop{
+    position:fixed;inset:0;background:rgba(217,242,74,.14);
+    border:3px dashed var(--hi);display:none;
+    align-items:center;justify-content:center;font-size:20px;letter-spacing:2px;
+    pointer-events:none;z-index:99;
+  }
+  #drop.on{display:flex;}
+  .swatches{display:flex;gap:5px;margin-top:6px;}
+  .sw{flex:1;height:20px;border-radius:3px;cursor:pointer;border:1px solid rgba(255,255,255,.15);}
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <h1>Node Poster</h1>
+  <p class="tagline">Drop in a photo as background → generate LINE / GRID / MOSAIC graphics over it → drag text boxes into place (snaps to grid) → save as PNG · runs entirely in your browser</p>
+
+  <details open>
+    <summary>1 · Image</summary>
+    <div class="body">
+      <button id="uploadBtn">Choose image / drag & drop</button>
+      <input type="file" id="fileInput" accept="image/*" style="display:none">
+      <div class="f">
+        <label>Canvas size</label>
+        <select id="sizeSel">
+          <option value="1080x1350">Portrait 4:5 · 1080×1350</option>
+          <option value="1080x1080">Square 1:1 · 1080×1080</option>
+          <option value="1080x1920">Story 9:16 · 1080×1920</option>
+          <option value="1600x1131">A4 Landscape · 1600×1131</option>
+        </select>
+      </div>
+      <div class="f">
+        <label>Image zoom <b id="zoomV">100%</b></label>
+        <input type="range" id="zoom" min="100" max="260" value="100">
+      </div>
+      <div class="row">
+        <div class="f">
+          <label>Pan X <b id="panxV">0</b></label>
+          <input type="range" id="panx" min="-100" max="100" value="0">
+        </div>
+        <div class="f">
+          <label>Pan Y <b id="panyV">0</b></label>
+          <input type="range" id="pany" min="-100" max="100" value="0">
+        </div>
+      </div>
+      <div class="f">
+        <label>Dim image <b id="dimV">18%</b></label>
+        <input type="range" id="dim" min="0" max="100" value="18">
+      </div>
+      <p class="hint">Push dim to 100% for a solid black background — pure graphic-poster look.</p>
+    </div>
+  </details>
+
+  <details open>
+    <summary>2 · Graphics</summary>
+    <div class="body">
+      <div class="row" style="margin-bottom:11px;">
+        <input type="number" id="seed" value="7">
+        <button style="width:44px;flex:0 0 44px;margin:0;" id="dice">🎲</button>
+      </div>
+      <div class="f">
+        <label>Graphic style</label>
+        <div class="chips" id="modeChips">
+          <div class="chip on" data-v="lines">LINE</div>
+          <div class="chip" data-v="blocks">GRID</div>
+          <div class="chip" data-v="mosaic">MOSAIC</div>
+          <div class="chip" data-v="stretch">STRETCH</div>
+        </div>
+      </div>
+      <div class="f">
+        <label>Graphic color</label>
+        <input type="color" id="accent" value="#e3f727">
+        <div class="swatches">
+          <div class="sw" data-c="#e3f727" style="background:#e3f727"></div>
+          <div class="sw" data-c="#ffffff" style="background:#ffffff"></div>
+          <div class="sw" data-c="#ff5c38" style="background:#ff5c38"></div>
+          <div class="sw" data-c="#4dd8ff" style="background:#4dd8ff"></div>
+          <div class="sw" data-c="#ff7fd0" style="background:#ff7fd0"></div>
+          <div class="sw" data-c="#111111" style="background:#111111"></div>
+        </div>
+      </div>
+
+      <div id="onlyLines">
+        <div class="f">
+          <label>Line count <b id="pathsV">7</b></label>
+          <input type="range" id="paths" min="0" max="20" value="7">
+        </div>
+        <div class="f">
+          <label>Line length <b id="segsV">14</b></label>
+          <input type="range" id="segs" min="4" max="34" value="14">
+        </div>
+        <div class="f">
+          <label>Curliness <b id="curveV">55</b>°</label>
+          <input type="range" id="curve" min="0" max="170" value="55">
+        </div>
+        <div class="f">
+          <label>Closed shapes (blobs) <b id="polysV">5</b></label>
+          <input type="range" id="polys" min="0" max="14" value="5">
+        </div>
+        <div class="row">
+          <div class="f">
+            <label>Min line weight <b id="lwMinV">0.5</b></label>
+            <input type="range" id="lwMin" min="3" max="80" value="5">
+          </div>
+          <div class="f">
+            <label>Max line weight <b id="lwMaxV">3.0</b></label>
+            <input type="range" id="lwMax" min="3" max="80" value="30">
+          </div>
+        </div>
+        <p class="hint">Each line gets a random weight within this range, so some lines come out thick and others thin.</p>
+        <div class="f">
+          <label>Step length <b id="gridV">46</b></label>
+          <input type="range" id="grid" min="20" max="110" value="46">
+        </div>
+      </div>
+
+      <div id="onlyBlocks" style="display:none">
+        <div class="f">
+          <label>Cell size <b id="cellV">22</b> px</label>
+          <input type="range" id="cell" min="6" max="200" value="22">
+        </div>
+        <div class="f">
+          <label>Cell gap <b id="gapV">2</b> px</label>
+          <input type="range" id="gap" min="0" max="14" value="2">
+        </div>
+        <div class="f">
+          <label>Density <b id="densV">50</b>%</label>
+          <input type="range" id="dens" min="0" max="100" value="50">
+        </div>
+        <div class="f">
+          <label>Pattern scale <b id="nscaleV">9</b></label>
+          <input type="range" id="nscale" min="2" max="34" value="9">
+        </div>
+        <div class="f">
+          <label>Edge sharpness <b id="contV">1.8</b></label>
+          <input type="range" id="cont" min="40" max="500" value="180">
+        </div>
+        <div class="f">
+          <label>Dither pattern</label>
+          <div class="chips" id="ditherChips">
+            <div class="chip on" data-v="b4" style="flex:0 0 46%">4×4 grid</div>
+            <div class="chip" data-v="b8" style="flex:0 0 46%">8×8 grid</div>
+            <div class="chip" data-v="rand" style="flex:0 0 46%">Random</div>
+            <div class="chip" data-v="none" style="flex:0 0 46%">Solid (no dither)</div>
+          </div>
+        </div>
+        <div class="f">
+          <label>Cell shape</label>
+          <div class="chips" id="shapeChips">
+            <div class="chip on" data-v="sq">Square</div>
+            <div class="chip" data-v="ci">Circle</div>
+            <div class="chip" data-v="di">Diamond</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="onlyMosaic" style="display:none">
+        <div class="f">
+          <label>Grid size <b id="mCellV">26</b> px</label>
+          <input type="range" id="mCell" min="8" max="70" value="26">
+        </div>
+        <div class="f">
+          <label>Cell gap <b id="mGapV">3</b> px</label>
+          <input type="range" id="mGap" min="0" max="14" value="3">
+        </div>
+        <div class="f">
+          <label>Palette colors <b id="mColorsV">10</b></label>
+          <input type="range" id="mColors" min="3" max="24" value="10">
+        </div>
+        <div class="row">
+          <div class="f">
+            <label>Min circle size <b id="mMinRV">35</b>%</label>
+            <input type="range" id="mMinR" min="0" max="100" value="35">
+          </div>
+          <div class="f">
+            <label>Max circle size <b id="mMaxRV">100</b>%</label>
+            <input type="range" id="mMaxR" min="0" max="100" value="100">
+          </div>
+        </div>
+        <div class="f">
+          <label>Random cell skip <b id="mSkipV">15</b>%</label>
+          <input type="range" id="mSkip" min="0" max="60" value="15">
+        </div>
+        <div class="f">
+          <label>Background color</label>
+          <input type="color" id="mBg" value="#050505">
+        </div>
+        <p class="hint">Samples the real image's average color per cell (respecting your zoom/pan) and quantizes it to a limited palette. Circle size scales with each color's brightness.</p>
+      </div>
+
+      <div id="onlyStretch" style="display:none">
+        <div class="f">
+          <label>Graphic coverage <b id="stCoverageV">60</b>%</label>
+          <input type="range" id="stCoverage" min="10" max="100" value="60">
+        </div>
+        <div class="f">
+          <label>Detail (splits) <b id="stDepthV">4</b></label>
+          <input type="range" id="stDepth" min="1" max="6" value="4">
+        </div>
+        <p class="hint">Samples real strips of the photo and stretches them into bars, tiled as an irregular block grid — mixing horizontal and vertical stretches, each bar banded from several stacked samples. Coverage sets how much of the top area it fills; the photo shows through below it.</p>
+      </div>
+
+      <div class="f">
+        <label>Avoid text</label>
+        <div class="chips" id="avoidChips">
+          <div class="chip on" data-v="glyph">Around glyphs</div>
+          <div class="chip" data-v="box">As box</div>
+          <div class="chip" data-v="off">Off</div>
+        </div>
+      </div>
+      <div class="f">
+        <label>Avoid margin <b id="padV">14</b> px</label>
+        <input type="range" id="pad" min="0" max="60" value="14">
+      </div>
+      <p class="hint">"Around glyphs" clears space following the actual letterforms, so graphics look like they weave around the text · "As box" clears a rectangle around the whole text block.</p>
+    </div>
+  </details>
+
+  <details open>
+    <summary>3 · Text</summary>
+    <div class="body">
+      <div class="f">
+        <label>Select text box</label>
+        <select id="blockSel"></select>
+      </div>
+      <div class="f">
+        <label>Content</label>
+        <textarea id="btext"></textarea>
+      </div>
+      <div class="f">
+        <label>Font</label>
+        <select id="bfont"></select>
+      </div>
+      <div class="row">
+        <div class="f">
+          <label>Size <b id="bsizeV">40</b></label>
+          <input type="range" id="bsize" min="10" max="200" value="40">
+        </div>
+        <div class="f">
+          <label>Line height <b id="blhV">1.20</b></label>
+          <input type="range" id="blh" min="80" max="220" value="120">
+        </div>
+      </div>
+      <div class="row">
+        <div class="f">
+          <label>Letter spacing <b id="blsV">0.0</b></label>
+          <input type="range" id="bls" min="-30" max="120" value="0">
+        </div>
+        <div class="f">
+          <label>Box width <b id="bwV">40%</b></label>
+          <input type="range" id="bw" min="10" max="100" value="40">
+        </div>
+      </div>
+      <div class="f">
+        <label>Alignment</label>
+        <div class="chips" id="alignChips">
+          <div class="chip on" data-v="left">Left</div>
+          <div class="chip" data-v="center">Center</div>
+          <div class="chip" data-v="right">Right</div>
+          <div class="chip" data-v="justify">Justify</div>
+        </div>
+      </div>
+      <div class="f">
+        <label>Text color</label>
+        <input type="color" id="bcolor" value="#e3f727">
+        <div class="chips" style="margin-top:6px;" id="inheritChips">
+          <div class="chip on" data-v="1">Use graphic color</div>
+          <div class="chip" data-v="0">Custom color</div>
+        </div>
+      </div>
+      <button id="toggleVis">Hide / show this box</button>
+      <p class="hint">Drag any text box on the canvas — it snaps to the grid automatically. Hold <b>Alt</b> while dragging for free placement.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>4 · Layout helpers</summary>
+    <div class="body">
+      <div class="f">
+        <label>Snap grid <b id="snapV">24</b> px</label>
+        <input type="range" id="snap" min="4" max="80" value="24">
+      </div>
+      <div class="f">
+        <label>Guide grid</label>
+        <div class="chips" id="guideChips">
+          <div class="chip on" data-v="0">Hide</div>
+          <div class="chip" data-v="1">Show</div>
+        </div>
+      </div>
+      <p class="hint">The guide grid won't appear in the saved PNG.</p>
+    </div>
+  </details>
+
+  <button class="primary" id="regen">Randomize graphics</button>
+  <button id="save">Save PNG</button>
+</div>
+
+<div id="stage"><canvas id="cv" width="1080" height="1350"></canvas></div>
+<div id="drop">Drop your image here</div>
+
+<script>
+'use strict';
+
+/* ─────────── fonts (ใช้ฟอนต์ในเครื่อง ไม่ต้องต่อเน็ต) ─────────── */
+const THAI_FB = `"Sukhumvit Set", Thonburi, "Noto Sans Thai", "Leelawadee UI"`;
+const FONTS = [
+  ['Helvetica Neue',   `"Helvetica Neue", Helvetica, Arial`],
+  ['Futura',           `Futura, "Century Gothic"`],
+  ['Avenir Next',      `"Avenir Next", Avenir`],
+  ['Optima',           `Optima, Candara`],
+  ['Didot',            `Didot, "Bodoni MT", Georgia`],
+  ['Georgia',          `Georgia, serif`],
+  ['Times',            `"Times New Roman", Times, serif`],
+  ['Courier',          `"Courier New", Courier, monospace`],
+  ['Sukhumvit Set',    `"Sukhumvit Set", Thonburi`],
+  ['Thonburi',         `Thonburi, "Sukhumvit Set"`],
+];
+const fontStack = i => `${FONTS[i][1]}, ${THAI_FB}, sans-serif`;
+
+/* ─────────── seeded rng ─────────── */
+function rngFrom(seed){
+  let a = (seed >>> 0) || 1;
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ─────────── state ─────────── */
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+const S = {
+  img:null, zoom:1, panx:0, pany:0, dim:.18,
+  accent:'#e3f727',
+  seed:7,
+  mode:'lines',
+  paths:7, segs:14, polys:5, lwMin:.5, lwMax:3, grid:46, curve:55,
+  cell:22, gap:2, dens:.5, nscale:9, cont:1.8, dither:'b4', shape:'sq',
+  mCell:26, mGap:3, mColors:10, mMinR:.35, mMaxR:1, mSkip:.15, mBg:'#050505',
+  stCoverage:.6, stDepth:4,
+  avoid:'glyph', pad:14,
+  snap:24, guides:false,
+  blocks:[
+    {name:'Heading',      text:'design layout', font:4,  size:96, lh:1.0,  ls:0,  w:70, align:'left',   x:.12, y:.36, color:'#e3f727', inherit:true,  vis:true},
+    {name:'Subheading',   text:'ทดสอบพิมพ์คำ',    font:8, size:44, lh:1.1,  ls:2,  w:60, align:'left',   x:.36, y:.26, color:'#e3f727', inherit:true,  vis:true},
+    {name:'Body copy',      text:'พิมพ์คำบรรยายของคุณตรงนี้ กล่องนี้ตั้งค่าจัดวางแบบเต็มขอบไว้ ลองปรับความกว้างกล่องกับขนาดตัวอักษรดูได้ · Type your body copy here to see how the justified column fills out.', font:1, size:19, lh:1.35, ls:0, w:26, align:'justify', x:.09, y:.74, color:'#e3f727', inherit:true, vis:true},
+    {name:'Address / time',  text:'ข้อความบรรทัดล่าง\nสถานที่ / วันเวลา\nwww.example.com', font:1, size:19, lh:1.35, ls:0, w:28, align:'right', x:.63, y:.80, color:'#e3f727', inherit:true, vis:true},
+  ],
+  sel:0
+};
+let NET = null;
+
+/* ─────────── 2D value noise + fbm (สำหรับโหมดเม็ด) ─────────── */
+function makeNoise2(seed){
+  const r = rngFrom(seed);
+  const P = new Uint8Array(512), G = new Float32Array(256), p = new Uint8Array(256);
+  for(let i=0;i<256;i++) p[i]=i;
+  for(let i=255;i>0;i--){ const j=Math.floor(r()*(i+1)); const t=p[i]; p[i]=p[j]; p[j]=t; }
+  for(let i=0;i<512;i++) P[i]=p[i&255];
+  for(let i=0;i<256;i++) G[i]=r();
+  const val=(ix,iy)=>G[P[(P[ix&255]+(iy&255))&255]];
+  return (x,y)=>{
+    const ix=Math.floor(x), iy=Math.floor(y), fx=x-ix, fy=y-iy;
+    const u=fx*fx*fx*(fx*(fx*6-15)+10), v=fy*fy*fy*(fy*(fy*6-15)+10);
+    const a=val(ix,iy), b=val(ix+1,iy), c=val(ix,iy+1), d=val(ix+1,iy+1);
+    const top=a+(b-a)*u, bot=c+(d-c)*u;
+    return top+(bot-top)*v;
+  };
+}
+function fbm(n,x,y,oct){
+  let s=0, amp=.5, f=1, norm=0;
+  for(let i=0;i<oct;i++){ s+=n(x*f,y*f)*amp; norm+=amp; amp*=.5; f*=2; }
+  return s/norm;
+}
+// hash แบบคงที่ ใช้ทำ dither สุ่มที่ผลลัพธ์ซ้ำได้
+function hash2(i,j,seed){
+  let h = (i*374761393 + j*668265263 + seed*1442695041) | 0;
+  h = (h ^ (h>>>13)) | 0; h = Math.imul(h, 1274126177) | 0;
+  return ((h ^ (h>>>16)) >>> 0) / 4294967296;
+}
+const BAYER = {
+  b4:{n:4, m:[[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]]},
+  b8:{n:8, m:[
+    [ 0,32, 8,40, 2,34,10,42],[48,16,56,24,50,18,58,26],
+    [12,44, 4,36,14,46, 6,38],[60,28,52,20,62,30,54,22],
+    [ 3,35,11,43, 1,33, 9,41],[51,19,59,27,49,17,57,25],
+    [15,47, 7,39,13,45, 5,37],[63,31,55,23,61,29,53,21]]}
+};
+
+/* ─────────── network generator (เส้นโค้งอิสระ) ─────────── */
+function buildNetwork(){
+  const r = rngFrom(S.seed);
+  const W = cv.width, H = cv.height;
+  const step = Math.max(4, S.grid);
+  const turn = (S.curve||0) * Math.PI/180;
+  const out = {polylines:[], loops:[]};
+
+  // เส้นเดินอิสระ หันทิศทีละนิดแบบสุ่ม → โค้งวนธรรมชาติ
+  for(let p=0; p<S.paths; p++){
+    const pts=[];
+    let x = r()*W, y = r()*H;
+    let ang = r()*Math.PI*2;
+    pts.push([x,y]);
+    for(let s=0; s<S.segs; s++){
+      ang += (r()-.5)*2*turn;
+      const nx = x + Math.cos(ang)*step;
+      const ny = y + Math.sin(ang)*step;
+      // เด้งกลับเมื่อเลยขอบ
+      if(nx < -step*2 || nx > W+step*2 || ny < -step*2 || ny > H+step*2){ ang += Math.PI; continue; }
+      x = nx; y = ny;
+      pts.push([x,y]);
+    }
+    if(pts.length>2) out.polylines.push(pts);
+  }
+
+  // รูปทรงปิดแบบบล็อบ (จุดรอบจุดศูนย์กลาง รัศมีสุ่มเยื้องเล็กน้อย)
+  for(let p=0; p<S.polys; p++){
+    const cx = r()*W, cy = r()*H;
+    const baseR = (1+r()*3)*step/2;
+    const n = 6 + Math.floor(r()*5);
+    const pts=[];
+    for(let i=0;i<n;i++){
+      const a = (i/n)*Math.PI*2 + r()*.3;
+      const rad = baseR * (.55 + r()*.9);
+      pts.push([cx+Math.cos(a)*rad, cy+Math.sin(a)*rad]);
+    }
+    out.loops.push(pts);
+  }
+
+  NET = out;
+}
+
+/* ─────────── draw ─────────── */
+function drawImage(){
+  if(S.mode === 'mosaic'){
+    ctx.fillStyle = S.mBg;
+    ctx.fillRect(0,0,cv.width,cv.height);
+    return;
+  }
+  ctx.fillStyle = '#0d0f10';
+  ctx.fillRect(0,0,cv.width,cv.height);
+  if(!S.img){
+    const gr = ctx.createLinearGradient(0,0,cv.width,cv.height);
+    gr.addColorStop(0,'#20282a'); gr.addColorStop(1,'#121618');
+    ctx.fillStyle = gr; ctx.fillRect(0,0,cv.width,cv.height);
+  } else {
+    const iw = S.img.width, ih = S.img.height;
+    const scale = Math.max(cv.width/iw, cv.height/ih) * S.zoom;
+    const dw = iw*scale, dh = ih*scale;
+    const dx = (cv.width-dw)/2 + S.panx*(dw-cv.width)/2/100*2;
+    const dy = (cv.height-dh)/2 + S.pany*(dh-cv.height)/2/100*2;
+    ctx.drawImage(S.img, dx, dy, dw, dh);
+  }
+  if(S.dim>0){
+    ctx.fillStyle = `rgba(0,0,0,${S.dim})`;
+    ctx.fillRect(0,0,cv.width,cv.height);
+  }
+}
+
+// เลเยอร์แยกสำหรับกราฟิกเส้น เพื่อ "เจาะ" ช่องว่างตรงตัวหนังสือได้
+const netCv  = document.createElement('canvas');
+const netCtx = netCv.getContext('2d');
+
+function drawGraphic(){
+  if(netCv.width !== cv.width || netCv.height !== cv.height){
+    netCv.width = cv.width; netCv.height = cv.height;
+  }
+  netCtx.clearRect(0,0,netCv.width,netCv.height);
+  if(S.mode === 'blocks') drawBlocks(netCtx);
+  else if(S.mode === 'mosaic') drawMosaic(netCtx);
+  else if(S.mode === 'stretch'){ drawStretch(netCtx); punchText(netCtx); }
+  else { drawNetwork(netCtx); punchText(netCtx); }
+  ctx.drawImage(netCv, 0, 0);
+}
+
+/* โหมดเม็ด: ไล่ระดับความหนาแน่นด้วย ordered dither บนกริดตายตัว
+   เม็ดไหนทับข้อความ = ข้ามทั้งเม็ด (ไม่ตัดครึ่ง) เม็ดจึงอยู่บนกริดเสมอ */
+function cellMask(cell, cols, rows){
+  if(S.avoid === 'off') return null;
+  const m = document.createElement('canvas');
+  m.width = cols; m.height = rows;
+  const mc = m.getContext('2d', {willReadFrequently:true});
+  mc.save();
+  mc.scale(1/cell, 1/cell);
+  mc.fillStyle='#000'; mc.strokeStyle='#000';
+  S.blocks.forEach(b=>{
+    if(!b.vis || !b.text.trim()) return;
+    const T = textItems(b);
+    if(S.avoid === 'box'){
+      mc.fillRect(T.L.x0-S.pad, T.L.y0-S.pad, T.L.w+S.pad*2, T.L.h+S.pad*2);
+    } else {
+      mc.font = `${b.size}px ${fontStack(b.font)}`;
+      mc.textAlign='left'; mc.textBaseline='alphabetic';
+      try{ mc.letterSpacing = (b.ls/10)+'px'; }catch(e){}
+      mc.lineJoin='round'; mc.lineCap='round';
+      mc.lineWidth = Math.max(0.01, S.pad*2);
+      T.items.forEach(it=>{
+        if(S.pad>0) mc.strokeText(it.s, it.x, it.y);
+        mc.fillText(it.s, it.x, it.y);
+      });
+    }
+  });
+  mc.restore();
+  return mc.getImageData(0,0,cols,rows).data;
+}
+
+function drawBlocks(g){
+  const cell = S.cell, gap = Math.min(S.gap, cell-1);
+  const cols = Math.ceil(cv.width/cell), rows = Math.ceil(cv.height/cell);
+  const mask = cellMask(cell, cols, rows);
+  const n2   = makeNoise2(S.seed);
+  const B    = BAYER[S.dither];
+  const sc   = 1/Math.max(1, S.nscale);
+  const size = cell - gap;
+  g.save();
+  g.fillStyle = S.accent;
+  for(let j=0;j<rows;j++){
+    for(let i=0;i<cols;i++){
+      if(mask && mask[(j*cols+i)*4+3] > 8) continue;      // ตรงนี้เป็นข้อความ ข้ามไป
+      let v = fbm(n2, i*sc, j*sc, 4);
+      v = (v-.5)*S.cont + .5 + (S.dens-.5)*1.5;
+      let t;
+      if(B)                       t = (B.m[j%B.n][i%B.n]+.5)/(B.n*B.n);
+      else if(S.dither==='rand')  t = hash2(i,j,S.seed);
+      else                        t = .5;
+      if(v <= t) continue;
+      const x = i*cell + gap/2, y = j*cell + gap/2;
+      if(S.shape === 'ci'){
+        g.beginPath(); g.arc(x+size/2, y+size/2, size/2, 0, Math.PI*2); g.fill();
+      } else if(S.shape === 'di'){
+        g.beginPath();
+        g.moveTo(x+size/2, y); g.lineTo(x+size, y+size/2);
+        g.lineTo(x+size/2, y+size); g.lineTo(x, y+size/2);
+        g.closePath(); g.fill();
+      } else {
+        g.fillRect(x, y, size, size);
+      }
+    }
+  }
+  g.restore();
+}
+
+/* โหมด mosaic: สุ่มตัวอย่างสีเฉลี่ยต่อเซลล์จากรูปจริง (ตำแหน่งเดียวกับซูม/เลื่อนที่ตั้งไว้)
+   แล้ว quantize เข้าพาเลตจำกัดสีด้วย k-means เบาๆ ขนาดวงกลมแปรผันตามความสว่าง */
+const mosCv  = document.createElement('canvas');
+const mosCtx = mosCv.getContext('2d', {willReadFrequently:true});
+
+function sampleGridColors(cols, rows){
+  if(!S.img) return null;
+  mosCv.width = cols; mosCv.height = rows;
+  mosCtx.clearRect(0,0,cols,rows);
+  const iw = S.img.width, ih = S.img.height;
+  const scale = Math.max(cv.width/iw, cv.height/ih) * S.zoom;
+  const dw = iw*scale, dh = ih*scale;
+  const dx = (cv.width-dw)/2 + S.panx*(dw-cv.width)/2/100*2;
+  const dy = (cv.height-dh)/2 + S.pany*(dh-cv.height)/2/100*2;
+  mosCtx.imageSmoothingEnabled = true;
+  mosCtx.imageSmoothingQuality = 'high';
+  mosCtx.save();
+  mosCtx.scale(cols/cv.width, rows/cv.height);
+  mosCtx.drawImage(S.img, dx, dy, dw, dh);
+  mosCtx.restore();
+  return mosCtx.getImageData(0,0,cols,rows).data;
+}
+
+function kmeansPalette(colors, k, seed){
+  if(colors.length <= k) return colors.map(c=>c.slice());
+  const r = rngFrom(seed);
+  const centers = [], used = new Set();
+  while(centers.length < k){
+    const idx = Math.floor(r()*colors.length);
+    if(used.has(idx)) continue;
+    used.add(idx); centers.push(colors[idx].slice());
+  }
+  for(let iter=0; iter<8; iter++){
+    const sums = centers.map(()=>[0,0,0,0]);
+    colors.forEach(c=>{
+      let bi=0, bd=Infinity;
+      centers.forEach((ct,i)=>{
+        const d = (c[0]-ct[0])**2+(c[1]-ct[1])**2+(c[2]-ct[2])**2;
+        if(d<bd){ bd=d; bi=i; }
+      });
+      sums[bi][0]+=c[0]; sums[bi][1]+=c[1]; sums[bi][2]+=c[2]; sums[bi][3]++;
+    });
+    centers.forEach((ct,i)=>{
+      if(sums[i][3]){ ct[0]=sums[i][0]/sums[i][3]; ct[1]=sums[i][1]/sums[i][3]; ct[2]=sums[i][2]/sums[i][3]; }
+    });
+  }
+  return centers;
+}
+
+function drawMosaic(g){
+  const cell = S.mCell, gap = Math.min(S.mGap, cell-1);
+  const cols = Math.ceil(cv.width/cell), rows = Math.ceil(cv.height/cell);
+  const mask = cellMask(cell, cols, rows);
+  const data = sampleGridColors(cols, rows);
+  if(!data) return;
+
+  const cellColors = [];
+  for(let j=0;j<rows;j++){
+    for(let i=0;i<cols;i++){
+      const idx = (j*cols+i)*4;
+      cellColors.push([data[idx], data[idx+1], data[idx+2]]);
+    }
+  }
+  const palette = kmeansPalette(cellColors, Math.max(1,S.mColors), S.seed);
+  const maxRad = (cell-gap)/2;
+
+  g.save();
+  for(let j=0;j<rows;j++){
+    for(let i=0;i<cols;i++){
+      if(mask && mask[(j*cols+i)*4+3] > 8) continue;
+      if(hash2(i,j,S.seed) < S.mSkip) continue;
+      const c = cellColors[j*cols+i];
+      let bi=0, bd=Infinity;
+      palette.forEach((p,pi)=>{
+        const d = (c[0]-p[0])**2+(c[1]-p[1])**2+(c[2]-p[2])**2;
+        if(d<bd){ bd=d; bi=pi; }
+      });
+      const pc = palette[bi];
+      const lum = (0.2126*pc[0]+0.7152*pc[1]+0.0722*pc[2])/255;
+      const radius = maxRad * (S.mMinR + lum*(S.mMaxR-S.mMinR));
+      if(radius <= .4) continue;
+      g.fillStyle = `rgb(${pc[0]|0},${pc[1]|0},${pc[2]|0})`;
+      g.beginPath();
+      g.arc(i*cell+cell/2, j*cell+cell/2, radius, 0, Math.PI*2);
+      g.fill();
+    }
+  }
+  g.restore();
+}
+
+/* โหมด stretch: แบ่งพื้นที่ด้านบนเป็นบล็อกแบบ treemap (Mondrian)
+   แต่ละบล็อกสุ่มตัวอย่างแถบพิกเซลจริงจากรูป (แนวนอน/แนวตั้งสลับกัน)
+   แล้วยืดให้เต็มบล็อก ซ้อนกันหลายแถบ = ลาย scanline แบบ glitch */
+function buildTreemap(x, y, w, h, depth, rng, out){
+  if(depth<=0 || w<28 || h<28 || rng()<.10){
+    out.push({x,y,w,h});
+    return;
+  }
+  const splitVertical = w>=h ? rng()<.82 : rng()<.18;
+  const t = .22 + rng()*.56;
+  if(splitVertical){
+    const w1 = w*t;
+    buildTreemap(x,y,w1,h,depth-1,rng,out);
+    buildTreemap(x+w1,y,w-w1,h,depth-1,rng,out);
+  } else {
+    const h1 = h*t;
+    buildTreemap(x,y,w,h1,depth-1,rng,out);
+    buildTreemap(x,y+h1,w,h-h1,depth-1,rng,out);
+  }
+}
+
+function drawStretchBar(g, rect, img, tf, rng){
+  const horiz = rng() < .5;
+  const bands = 4 + Math.floor(rng()*10);
+  if(horiz){
+    const srcX0 = (rect.x-tf.dx)/tf.scale, srcX1 = (rect.x+rect.w-tf.dx)/tf.scale;
+    const srcW = Math.max(1, srcX1-srcX0);
+    let yc = rect.y;
+    for(let b=0; b<bands; b++){
+      const remain = (rect.y+rect.h) - yc;
+      const h = b===bands-1 ? remain : Math.min(remain, (rect.h/bands)*(.4+rng()*1.2));
+      if(h <= 0) break;
+      const srcY = rng()*img.height;
+      g.drawImage(img, srcX0, srcY, srcW, 1, rect.x, yc, rect.w, h);
+      yc += h;
+    }
+  } else {
+    const srcY0 = (rect.y-tf.dy)/tf.scale, srcY1 = (rect.y+rect.h-tf.dy)/tf.scale;
+    const srcH = Math.max(1, srcY1-srcY0);
+    let xc = rect.x;
+    for(let b=0; b<bands; b++){
+      const remain = (rect.x+rect.w) - xc;
+      const w = b===bands-1 ? remain : Math.min(remain, (rect.w/bands)*(.4+rng()*1.2));
+      if(w <= 0) break;
+      const srcX = rng()*img.width;
+      g.drawImage(img, srcX, srcY0, 1, srcH, xc, rect.y, w, rect.h);
+      xc += w;
+    }
+  }
+}
+
+function drawStretch(g){
+  if(!S.img) return;
+  const iw = S.img.width, ih = S.img.height;
+  const scale = Math.max(cv.width/iw, cv.height/ih) * S.zoom;
+  const dw = iw*scale, dh = ih*scale;
+  const dx = (cv.width-dw)/2 + S.panx*(dw-cv.width)/2/100*2;
+  const dy = (cv.height-dh)/2 + S.pany*(dh-cv.height)/2/100*2;
+  const tf = {dx, dy, scale};
+
+  const coverH = cv.height * S.stCoverage;
+  const rng = rngFrom(S.seed);
+  const rects = [];
+  buildTreemap(0, 0, cv.width, coverH, S.stDepth, rng, rects);
+
+  g.save();
+  g.imageSmoothingEnabled = false;   // ปิด interpolation ให้ขอบแถบสีคมชัด ไม่เบลอเป็นไล่เฉด
+  rects.forEach(r => drawStretchBar(g, r, S.img, tf, rng));
+  g.restore();
+}
+
+// เส้นโค้งเรียบผ่านจุดชุดหนึ่งด้วย Catmull-Rom → Bezier
+function drawSmoothPath(g, pts, closed){
+  if(pts.length < 2) return;
+  g.beginPath();
+  if(pts.length === 2){
+    g.moveTo(pts[0][0], pts[0][1]);
+    g.lineTo(pts[1][0], pts[1][1]);
+  } else {
+    const n = pts.length;
+    const at = i => closed ? pts[(i%n+n)%n] : pts[Math.min(Math.max(i,0), n-1)];
+    g.moveTo(pts[0][0], pts[0][1]);
+    const last = closed ? n : n-1;
+    for(let i=0;i<last;i++){
+      const p0=at(i-1), p1=at(i), p2=at(i+1), p3=at(i+2);
+      const c1x = p1[0] + (p2[0]-p0[0])/6, c1y = p1[1] + (p2[1]-p0[1])/6;
+      const c2x = p2[0] - (p3[0]-p1[0])/6, c2y = p2[1] - (p3[1]-p1[1])/6;
+      g.bezierCurveTo(c1x,c1y,c2x,c2y,p2[0],p2[1]);
+    }
+    if(closed) g.closePath();
+  }
+  g.stroke();
+}
+
+function drawNetwork(g){
+  if(!NET) return;
+  g.save();
+  g.strokeStyle = S.accent;
+  g.lineJoin='round'; g.lineCap='round';
+  const rw = rngFrom(S.seed + 4242);       // rng แยกจากรูปทรง เพื่อให้ปรับช่วงความหนาได้โดยไม่ต้องสุ่มเส้นใหม่
+  NET.polylines.forEach(pl=>{
+    g.lineWidth = S.lwMin + rw()*(S.lwMax-S.lwMin);
+    drawSmoothPath(g, pl, false);
+  });
+  NET.loops.forEach(pl=>{
+    g.lineWidth = S.lwMin + rw()*(S.lwMax-S.lwMin);
+    drawSmoothPath(g, pl, true);
+  });
+  g.restore();
+}
+
+function roundRect(c,x,y,w,h,r){
+  if(c.roundRect){ c.beginPath(); c.roundRect(x,y,w,h,r); return; }
+  r = Math.min(r, w/2, h/2);
+  c.beginPath();
+  c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r);
+  c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath();
+}
+
+// ลบกราฟิกเส้นออกจากบริเวณตัวหนังสือ (เว้นระยะ S.pad)
+function punchText(g){
+  if(S.avoid === 'off' ) return;
+  const pad = S.pad;
+  g.save();
+  g.globalCompositeOperation = 'destination-out';
+  g.fillStyle = '#000'; g.strokeStyle = '#000';
+  S.blocks.forEach(b=>{
+    if(!b.vis || !b.text.trim()) return;
+    const T = textItems(b);
+    if(S.avoid === 'box'){
+      roundRect(g, T.L.x0-pad, T.L.y0-pad, T.L.w+pad*2, T.L.h+pad*2, Math.min(pad, 18));
+      g.fill();
+    } else {
+      g.font = `${b.size}px ${fontStack(b.font)}`;
+      g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+      try{ g.letterSpacing = (b.ls/10) + 'px'; }catch(e){}
+      g.lineJoin='round'; g.lineCap='round';
+      g.lineWidth = Math.max(0.01, pad*2);
+      T.items.forEach(it=>{
+        if(pad>0) g.strokeText(it.s, it.x, it.y);
+        g.fillText(it.s, it.x, it.y);
+      });
+    }
+  });
+  g.restore();
+}
+
+/* text layout ------------------------------------------------ */
+function setFont(b){
+  ctx.font = `${b.size}px ${fontStack(b.font)}`;
+  ctx.textBaseline = 'alphabetic';
+  try{ ctx.letterSpacing = (b.ls/10) + 'px'; }catch(e){}
+}
+function wrap(b, maxW){
+  const lines=[];
+  b.text.split('\n').forEach(para=>{
+    if(para.trim()===''){ lines.push({words:[], last:true}); return; }
+    const words = para.split(/\s+/).filter(Boolean);
+    let cur=[];
+    words.forEach(w=>{
+      // ข้อความไทยไม่มีเว้นวรรคระหว่างคำ ทำให้ "คำ" หนึ่งอาจยาวเกิน maxW เองได้
+      // กรณีนี้ตัดคำนั้นเป็นชิ้นย่อยตามความกว้างแทนการปล่อยให้ล้นกล่อง
+      if(ctx.measureText(w).width > maxW){
+        if(cur.length){ lines.push({words:cur, last:false}); cur=[]; }
+        let piece = '';
+        for(const ch of w){
+          const test = piece + ch;
+          if(piece && ctx.measureText(test).width > maxW){
+            lines.push({words:[piece], last:false});
+            piece = ch;
+          } else piece = test;
+        }
+        cur = piece ? [piece] : [];
+        return;
+      }
+      const test = cur.concat([w]).join(' ');
+      if(cur.length && ctx.measureText(test).width > maxW){
+        lines.push({words:cur, last:false}); cur=[w];
+      } else cur.push(w);
+    });
+    lines.push({words:cur, last:true});
+  });
+  return lines;
+}
+function layout(b){
+  setFont(b);
+  const maxW = cv.width * b.w/100;
+  const lines = wrap(b, maxW);
+  const lh = b.size * b.lh;
+  const x0 = b.x * cv.width, y0 = b.y * cv.height;
+  return {lines, lh, maxW, x0, y0,
+          h: lines.length*lh,
+          w: b.align==='justify' ? maxW
+             : Math.min(maxW, Math.max(1, ...lines.map(l=>ctx.measureText(l.words.join(' ')).width)))};
+}
+// คำนวณตำแหน่งของทุกชิ้นข้อความไว้ใช้ร่วมกัน ทั้งตอนวาดจริงและตอนเจาะช่องว่าง
+function textItems(b){
+  const L = layout(b);           // layout() เรียก setFont() ให้แล้ว
+  const items = [];
+  L.lines.forEach((ln, i)=>{
+    const txt = ln.words.join(' ');
+    if(!txt) return;
+    const y = L.y0 + L.lh*(i+.82);
+    if(b.align==='justify' && !ln.last && ln.words.length>1){
+      const gap = (L.maxW - ctx.measureText(ln.words.join('')).width) / (ln.words.length-1);
+      let x = L.x0;
+      ln.words.forEach(w=>{ items.push({s:w, x, y}); x += ctx.measureText(w).width + gap; });
+    } else {
+      const tw = ctx.measureText(txt).width;
+      let x = L.x0;
+      if(b.align==='center') x = L.x0 + (L.w - tw)/2;
+      else if(b.align==='right') x = L.x0 + L.w - tw;
+      items.push({s:txt, x, y});
+    }
+  });
+  return {L, items};
+}
+
+function drawBlock(b){
+  if(!b.vis || !b.text.trim()) return null;
+  const T = textItems(b);
+  ctx.save();
+  ctx.fillStyle = b.inherit ? S.accent : b.color;
+  ctx.textAlign = 'left';
+  T.items.forEach(it=> ctx.fillText(it.s, it.x, it.y));
+  ctx.restore();
+  return {x:T.L.x0, y:T.L.y0, w:T.L.w, h:T.L.h};
+}
+
+let boxes = [];
+function render(showUI){
+  drawImage();
+  drawGraphic();
+  boxes = S.blocks.map(b => ({b, r: drawBlock(b)}));
+  if(showUI && S.guides) drawGuides();
+  if(showUI) drawSelection();
+}
+function drawGuides(){
+  ctx.save();
+  ctx.strokeStyle='rgba(255,255,255,.16)'; ctx.lineWidth=1;
+  for(let x=0;x<cv.width;x+=S.snap){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,cv.height); ctx.stroke(); }
+  for(let y=0;y<cv.height;y+=S.snap){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(cv.width,y); ctx.stroke(); }
+  ctx.restore();
+}
+function drawSelection(){
+  const e = boxes[S.sel];
+  if(!e || !e.r) return;
+  ctx.save();
+  ctx.strokeStyle='rgba(255,255,255,.65)';
+  ctx.lineWidth=1.5; ctx.setLineDash([7,5]);
+  ctx.strokeRect(e.r.x-7, e.r.y-7, e.r.w+14, e.r.h+14);
+  ctx.restore();
+}
+
+/* ─────────── drag & drop text ─────────── */
+let drag=null;
+function toCanvas(ev){
+  const r = cv.getBoundingClientRect();
+  return {x:(ev.clientX-r.left)/r.width*cv.width, y:(ev.clientY-r.top)/r.height*cv.height};
+}
+cv.addEventListener('pointerdown', ev=>{
+  const p = toCanvas(ev);
+  for(let i=boxes.length-1;i>=0;i--){
+    const e = boxes[i];
+    if(!e.r) continue;
+    if(p.x>=e.r.x-10 && p.x<=e.r.x+e.r.w+10 && p.y>=e.r.y-10 && p.y<=e.r.y+e.r.h+10){
+      S.sel = i; syncBlockUI();
+      drag = {i, ox:p.x-e.r.x, oy:p.y-e.r.y};
+      cv.setPointerCapture(ev.pointerId);
+      cv.classList.add('dragging');
+      render(true);
+      return;
+    }
+  }
+});
+cv.addEventListener('pointermove', ev=>{
+  if(!drag) return;
+  const p = toCanvas(ev);
+  let nx = p.x-drag.ox, ny = p.y-drag.oy;
+  if(!ev.altKey){ nx = Math.round(nx/S.snap)*S.snap; ny = Math.round(ny/S.snap)*S.snap; }
+  const b = S.blocks[drag.i];
+  b.x = nx/cv.width; b.y = ny/cv.height;
+  render(true);
+});
+function endDrag(ev){
+  if(!drag) return;
+  drag=null; cv.classList.remove('dragging');
+  try{ cv.releasePointerCapture(ev.pointerId); }catch(e){}
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+
+/* ─────────── UI wiring ─────────── */
+const $ = id => document.getElementById(id);
+
+function bindRange(id, valId, key, fmt, after){
+  const el=$(id);
+  el.addEventListener('input', ()=>{
+    const raw = +el.value;
+    S[key] = fmt ? fmt(raw) : raw;
+    if(valId) $(valId).textContent = (fmt ? fmt(raw) : raw);
+    if(after) after();
+    render(true);
+  });
+}
+bindRange('zoom','zoomV','zoom', v=>v/100);
+$('zoom').addEventListener('input',()=>$('zoomV').textContent = $('zoom').value+'%');
+bindRange('panx','panxV','panx');
+bindRange('pany','panyV','pany');
+bindRange('dim','dimV','dim', v=>v/100);
+$('dim').addEventListener('input',()=>$('dimV').textContent = $('dim').value+'%');
+
+bindRange('paths','pathsV','paths', null, buildNetwork);
+bindRange('segs','segsV','segs', null, buildNetwork);
+bindRange('polys','polysV','polys', null, buildNetwork);
+bindRange('grid','gridV','grid', null, buildNetwork);
+bindRange('curve','curveV','curve', null, buildNetwork);
+bindRange('lwMin','lwMinV','lwMin', v=>v/10);
+$('lwMin').addEventListener('input',()=>$('lwMinV').textContent=(+$('lwMin').value/10).toFixed(1));
+bindRange('lwMax','lwMaxV','lwMax', v=>v/10);
+$('lwMax').addEventListener('input',()=>$('lwMaxV').textContent=(+$('lwMax').value/10).toFixed(1));
+bindRange('snap','snapV','snap');
+bindRange('pad','padV','pad');
+
+$('seed').addEventListener('input', ()=>{ S.seed = +$('seed').value||1; buildNetwork(); render(true); });
+$('dice').addEventListener('click', ()=>{
+  S.seed = Math.floor(Math.random()*99999); $('seed').value = S.seed;
+  buildNetwork(); render(true);
+});
+$('regen').addEventListener('click', ()=>$('dice').click());
+$('accent').addEventListener('input', ()=>{ S.accent = $('accent').value; render(true); });
+document.querySelectorAll('.sw').forEach(sw=>{
+  sw.addEventListener('click', ()=>{
+    S.accent = sw.dataset.c; $('accent').value = S.accent; render(true);
+  });
+});
+
+function chipGroup(id, cb){
+  const wrap=$(id);
+  wrap.addEventListener('click', ev=>{
+    const c = ev.target.closest('.chip'); if(!c) return;
+    wrap.querySelectorAll('.chip').forEach(k=>k.classList.remove('on'));
+    c.classList.add('on');
+    cb(c.dataset.v);
+  });
+}
+chipGroup('avoidChips', v=>{ S.avoid = v; render(true); });
+chipGroup('ditherChips', v=>{ S.dither = v; render(true); });
+chipGroup('shapeChips', v=>{ S.shape = v; render(true); });
+chipGroup('modeChips', v=>{
+  S.mode = v;
+  $('onlyLines').style.display  = v==='lines'  ? '' : 'none';
+  $('onlyBlocks').style.display = v==='blocks' ? '' : 'none';
+  $('onlyMosaic').style.display = v==='mosaic' ? '' : 'none';
+  $('onlyStretch').style.display = v==='stretch' ? '' : 'none';
+  render(true);
+});
+
+bindRange('cell','cellV','cell');
+bindRange('gap','gapV','gap');
+bindRange('nscale','nscaleV','nscale');
+bindRange('dens','densV','dens', v=>v/100);
+$('dens').addEventListener('input', ()=>$('densV').textContent = $('dens').value);
+bindRange('cont','contV','cont', v=>v/100);
+$('cont').addEventListener('input', ()=>$('contV').textContent = (+$('cont').value/100).toFixed(1));
+
+bindRange('mCell','mCellV','mCell');
+bindRange('mGap','mGapV','mGap');
+bindRange('mColors','mColorsV','mColors');
+bindRange('mMinR','mMinRV','mMinR', v=>v/100);
+$('mMinR').addEventListener('input', ()=>$('mMinRV').textContent = $('mMinR').value);
+bindRange('mMaxR','mMaxRV','mMaxR', v=>v/100);
+$('mMaxR').addEventListener('input', ()=>$('mMaxRV').textContent = $('mMaxR').value);
+bindRange('mSkip','mSkipV','mSkip', v=>v/100);
+$('mSkip').addEventListener('input', ()=>$('mSkipV').textContent = $('mSkip').value);
+$('mBg').addEventListener('input', ()=>{ S.mBg = $('mBg').value; render(true); });
+
+bindRange('stCoverage','stCoverageV','stCoverage', v=>v/100);
+$('stCoverage').addEventListener('input', ()=>$('stCoverageV').textContent = $('stCoverage').value);
+bindRange('stDepth','stDepthV','stDepth');
+chipGroup('guideChips', v=>{ S.guides = v==='1'; render(true); });
+chipGroup('alignChips', v=>{ S.blocks[S.sel].align = v; render(true); });
+chipGroup('inheritChips', v=>{ S.blocks[S.sel].inherit = v==='1'; render(true); });
+
+$('sizeSel').addEventListener('change', ()=>{
+  const [w,h] = $('sizeSel').value.split('x').map(Number);
+  cv.width=w; cv.height=h;
+  buildNetwork(); render(true);
+});
+
+// blocks
+FONTS.forEach((f,i)=>{
+  const o=document.createElement('option'); o.value=i; o.textContent=f[0];
+  o.style.fontFamily = fontStack(i);
+  $('bfont').appendChild(o);
+});
+S.blocks.forEach((b,i)=>{
+  const o=document.createElement('option'); o.value=i; o.textContent=(i+1)+' · '+b.name;
+  $('blockSel').appendChild(o);
+});
+function syncBlockUI(){
+  const b = S.blocks[S.sel];
+  $('blockSel').value = S.sel;
+  $('btext').value = b.text;
+  $('bfont').value = b.font;
+  $('bsize').value = b.size;  $('bsizeV').textContent = b.size;
+  $('blh').value = b.lh*100;  $('blhV').textContent = b.lh.toFixed(2);
+  $('bls').value = b.ls;      $('blsV').textContent = (b.ls/10).toFixed(1);
+  $('bw').value = b.w;        $('bwV').textContent = b.w+'%';
+  $('bcolor').value = b.color;
+  $('alignChips').querySelectorAll('.chip').forEach(c=>c.classList.toggle('on', c.dataset.v===b.align));
+  $('inheritChips').querySelectorAll('.chip').forEach(c=>c.classList.toggle('on', c.dataset.v===(b.inherit?'1':'0')));
+}
+$('blockSel').addEventListener('change', ()=>{ S.sel = +$('blockSel').value; syncBlockUI(); render(true); });
+$('btext').addEventListener('input', ()=>{ S.blocks[S.sel].text = $('btext').value; render(true); });
+$('bfont').addEventListener('change', ()=>{ S.blocks[S.sel].font = +$('bfont').value; render(true); });
+$('bsize').addEventListener('input', ()=>{ S.blocks[S.sel].size = +$('bsize').value; $('bsizeV').textContent = $('bsize').value; render(true); });
+$('blh').addEventListener('input', ()=>{ S.blocks[S.sel].lh = +$('blh').value/100; $('blhV').textContent = (+$('blh').value/100).toFixed(2); render(true); });
+$('bls').addEventListener('input', ()=>{ S.blocks[S.sel].ls = +$('bls').value; $('blsV').textContent = (+$('bls').value/10).toFixed(1); render(true); });
+$('bw').addEventListener('input', ()=>{ S.blocks[S.sel].w = +$('bw').value; $('bwV').textContent = $('bw').value+'%'; render(true); });
+$('bcolor').addEventListener('input', ()=>{ S.blocks[S.sel].color = $('bcolor').value; S.blocks[S.sel].inherit=false;
+  $('inheritChips').querySelectorAll('.chip').forEach(c=>c.classList.toggle('on', c.dataset.v==='0')); render(true); });
+$('toggleVis').addEventListener('click', ()=>{ S.blocks[S.sel].vis = !S.blocks[S.sel].vis; render(true); });
+
+// image loading
+function loadFile(file){
+  if(!file || !file.type.startsWith('image/')) return;
+  const fr = new FileReader();
+  fr.onload = e=>{
+    const im = new Image();
+    im.onload = ()=>{ S.img = im; render(true); };
+    im.src = e.target.result;
+  };
+  fr.readAsDataURL(file);
+}
+$('uploadBtn').addEventListener('click', ()=>$('fileInput').click());
+$('fileInput').addEventListener('change', e=>loadFile(e.target.files[0]));
+const dropEl = $('drop');
+['dragenter','dragover'].forEach(t=>window.addEventListener(t, e=>{ e.preventDefault(); dropEl.classList.add('on'); }));
+['dragleave','drop'].forEach(t=>window.addEventListener(t, e=>{
+  e.preventDefault();
+  if(t==='drop' || e.clientX<=0 || e.clientY<=0) dropEl.classList.remove('on');
+}));
+window.addEventListener('drop', e=>{ e.preventDefault(); dropEl.classList.remove('on'); loadFile(e.dataTransfer.files[0]); });
+
+// export
+$('save').addEventListener('click', ()=>{
+  render(false);
+  const a = document.createElement('a');
+  a.download = 'node-poster-'+S.seed+'.png';
+  a.href = cv.toDataURL('image/png');
+  a.click();
+  render(true);
+});
+
+// keyboard nudge
+window.addEventListener('keydown', e=>{
+  if(document.activeElement && /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  const b = S.blocks[S.sel];
+  const step = e.shiftKey ? S.snap : 1;
+  const map = {ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1]};
+  if(map[e.key]){
+    e.preventDefault();
+    b.x += map[e.key][0]*step/cv.width;
+    b.y += map[e.key][1]*step/cv.height;
+    render(true);
+  }
+});
+
+/* ─────────── go ─────────── */
+buildNetwork();
+syncBlockUI();
+render(true);
+</script>
+</body>
+</html>
